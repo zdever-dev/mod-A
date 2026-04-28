@@ -11,6 +11,13 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import com.example.structuregen.internal.world.StructureWorldState;
+import com.example.structuregen.api.StructureGeneratorAPI;
+import com.example.structuregen.api.SpawnPopulator;
+import com.example.structuregen.api.StructureDefinition;
+import com.example.structuregen.api.StructureInstance;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraftforge.event.server.ServerStartedEvent;
 
 /**
  * Entry point pro Structure Generator mod (Mod A).
@@ -69,6 +76,8 @@ public final class StructureGenMod {
         // Registrace lifecycle listeneru na mod busu
         MOD_EVENT_BUS.addListener(this::onCommonSetup);
 
+        FORGE_EVENT_BUS.addListener(this::onServerStarted);
+
         // Inicializace network channelu — musí proběhnout před FMLCommonSetupEvent
         ModNetworking.init();
 
@@ -115,6 +124,56 @@ public final class StructureGenMod {
 
             // A-7-2: ServerAboutToStartEvent handler zajistí datapack injekci —
             // server registry není dostupná v setup fázi.
-        });
-    }
+        // Nová metoda:
+/**
+ * Voláno po prvním tiku serveru — provede SpawnPopulator recovery
+ * pro všechny instance s {@code pendingPopulation = true} (A-5-16).
+ */
+private void onServerStarted(final ServerStartedEvent event) {
+    event.getServer().getAllLevels().forEach(level -> {
+        StructureWorldState state = StructureWorldState.get(level);
+        var pending = state.getPendingPopulations();
+
+        if (!pending.isEmpty()) {
+            LOGGER.info(
+                "SpawnPopulator recovery: found {} pending instance(s) in dimension '{}'.",
+                pending.size(), level.dimension().location()
+            );
+        }
+
+        for (StructureWorldState.PendingEntry entry : pending) {
+            StructureGeneratorAPI.getDefinition(entry.structureId()).ifPresent(def -> {
+                SpawnPopulator populator = def.getPopulator();
+                if (populator == null) {
+                    // Žádný populator — jen smaž pending flag
+                    state.setPendingPopulation(entry.structureId(), entry.chunkPos(), false);
+                    return;
+                }
+
+                try {
+                    // Rekonstruuj minimální StructureInstance pro recovery
+                    StructureInstance recoveryInstance = new StructureInstance(
+                        entry.structureId(),
+                        entry.seed(),
+                        new java.util.HashMap<>(),  // roomPositions nejsou persistovány
+                        new java.util.HashMap<>(),  // metadata nejsou persistovány
+                        entry.chunkPos()
+                    );
+
+                    populator.populate(recoveryInstance, level);
+                    state.setPendingPopulation(entry.structureId(), entry.chunkPos(), false);
+
+                    LOGGER.debug(
+                        "SpawnPopulator recovery: populated '{}' at {}.",
+                        entry.structureId(), entry.chunkPos()
+                    );
+                } catch (Throwable t) {
+                    LOGGER.error(
+                        "SpawnPopulator recovery: populate() threw for '{}' at {}: {}",
+                        entry.structureId(), entry.chunkPos(), t.getMessage(), t
+                    );
+                }
+            });
+        }
+    });
 }

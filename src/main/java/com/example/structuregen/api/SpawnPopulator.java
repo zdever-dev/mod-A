@@ -1,6 +1,6 @@
 package com.example.structuregen.api;
 
-import net.minecraft.world.level.server.ServerLevel;
+import net.minecraft.server.level.ServerLevel;
 
 /**
  * Callback volaný po dokončení generování celého komplexu pro umístění

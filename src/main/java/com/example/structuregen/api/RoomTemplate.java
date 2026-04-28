@@ -6,7 +6,7 @@ import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
-import net.minecraft.world.level.server.ServerLevel;
+import net.minecraft.server.level.ServerLevel;
 
 import java.util.Collections;
 import java.util.HashMap;

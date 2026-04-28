@@ -3,7 +3,6 @@ package com.example.structuregen.api.event;
 import com.example.structuregen.api.StructureInstance;
 import net.minecraftforge.eventbus.api.Cancelable;
 import net.minecraftforge.eventbus.api.Event;
-
 import java.util.Objects;
 
 /**
